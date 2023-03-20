@@ -1,0 +1,32 @@
+k8s_namespace: "jn-casopractico02"
+k8s_nombre: app-nginxserver
+directorio_trabajo: "/tmp"
+aplicacion:
+  definicion: "nginx_template.yaml"
+  nginxserver:
+    replicas: 1
+    recursos:
+      cpu: 100m
+      memoria: 128Mi
+    limites:
+      cpu: 250m
+      memoria: 256Mi
+    puerto: 80
+    montaje_volumen:
+      nombre: webrootvolume
+      ruta: /var/log/nginx
+
+datos_del_volumen:
+  nombre: nginx-disk
+  capacidad: 1Gi
+
+datos_del_servicio:
+  puertos: 
+    nombre: http 
+    puerto: 80
+    puerto_destino: 80
+    protocolo: TCP
+
+directorio_ficheros: ./aks_files
+plantilla: nginx_template.j2
+imagen_nginx: nginx

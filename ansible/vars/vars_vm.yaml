@@ -1,0 +1,12 @@
+directorio_ficheros: ./webserver_files
+autenticacion:
+  bbdd_usuarios: .creds
+  encriptacion: md5_crypt
+  usuario_1:
+    nombre: webuser
+    contrasena: webuser
+cifrado:
+  clave: localhost.key
+  certificado: localhost.crt
+imagen_webserver: webserver
+contenedor_webserver: webserver

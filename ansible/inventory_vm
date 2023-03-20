@@ -1,0 +1,5 @@
+[localserver]
+localhost ansible_connection=local
+
+[azurevmserver]
+azureadmin@51.103.124.200

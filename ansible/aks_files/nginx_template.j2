@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ k8s_nombre }}"
+  namespace: "{{ k8s_namespace }}"
+spec:
+  replicas: {{ aplicacion.nginxserver.replicas }}
+  selector:
+    matchLabels:
+      app: "{{ k8s_nombre }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ k8s_nombre }}"
+    spec:
+      nodeSelector:
+        "kubernetes.io/os": linux
+      containers:
+      - name: "{{ k8s_nombre }}"
+        image: "{{ acr.servidor }}/{{ imagen_nginx }}:{{ imagen.cp2_tag_name }}"
+        resources:
+          requests:
+            cpu: "{{ aplicacion.nginxserver.recursos.cpu }}"
+            memory: "{{ aplicacion.nginxserver.recursos.memoria }}"
+          limits:
+            cpu: "{{ aplicacion.nginxserver.limites.cpu }}"
+            memory: "{{ aplicacion.nginxserver.limites.memoria }}"
+        ports:
+        - containerPort: {{ aplicacion.nginxserver.puerto }}
+        volumeMounts:
+          - name: "{{ aplicacion.nginxserver.montaje_volumen.nombre }}"
+            mountPath: "{{ aplicacion.nginxserver.montaje_volumen.ruta }}"
+      volumes:
+      - name: "{{ aplicacion.nginxserver.montaje_volumen.nombre }}"
+        persistentVolumeClaim:
+          claimName: "{{ datos_del_volumen.nombre }}"    
+---      
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "{{ datos_del_volumen.nombre }}"
+  namespace: "{{ k8s_namespace }}"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: "{{ datos_del_volumen.capacidad }}"           
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ k8s_nombre }}"
+  namespace: "{{ k8s_namespace }}"
+spec:
+  type: LoadBalancer 
+  selector:
+    app: "{{ k8s_nombre }}"
+  ports:
+    - name: "{{ datos_del_servicio.puertos.puerto }}"
+      port: {{ datos_del_servicio.puertos.puerto }}
+      targetPort: {{ datos_del_servicio.puertos.puerto_destino }}
+      protocol: "{{ datos_del_servicio.puertos.protocolo }}"
+

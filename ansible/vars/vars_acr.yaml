@@ -1,0 +1,7 @@
+acr:
+  servidor: jnazurecontainerregistry1.azurecr.io
+  nombre_de_usuario: "jnazurecontainerregistry1"
+  contrasena: "Sl/uQNPn9afTwMSHvOAT+bOc0KcdpVByF26pDuxFPS+ACRDfHCqp"
+  
+imagen:
+  cp2_tag_name: "casopractico2"
