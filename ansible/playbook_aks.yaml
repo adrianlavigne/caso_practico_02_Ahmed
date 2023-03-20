@@ -1,0 +1,41 @@
+---
+- name: 'AKS Deployment'
+  hosts: localhost
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  vars_files:
+    - vars/vars_acr.yaml
+    - vars/vars_aks.yaml
+
+  tasks:
+
+    - name: 'Build and tag nginx image'
+      containers.podman.podman_image:
+        name: "{{ imagen_nginx }}"
+        tag: "{{ imagen.cp2_tag_name }}"
+        path: "{{ directorio_ficheros }}"
+        state: build   
+
+    - name: 'Push a nginx image'
+      containers.podman.podman_image:
+        name: "{{ imagen_nginx }}:{{ imagen.cp2_tag_name }}"
+        username: "{{ acr.nombre_de_usuario }}"
+        password: "{{ acr.contrasena }}"
+        push: yes
+        push_args:
+          dest:  "{{ acr.servidor }}"    
+
+    - name: 'Define deployment objects and services'
+      template:
+        src: "{{ directorio_ficheros }}/{{ plantilla }}"
+        dest: "{{ directorio_trabajo }}/{{ aplicacion.definicion }}"
+
+    - name: 'Create work namespace'
+      kubernetes.core.k8s:
+        kind: Namespace
+        name: "{{ k8s_namespace }}"
+
+    - name: 'Create deployments and services'
+      kubernetes.core.k8s:
+        state: present
+        template: "{{ directorio_trabajo }}/{{ aplicacion.definicion }}"

@@ -1,0 +1,103 @@
+---
+- name: 'Apache image creation'
+  hosts: localserver
+  become: true
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  vars_files:
+    - vars/vars_acr.yaml
+    - vars/vars_vm.yaml
+
+  tasks:
+
+    - name: 'Add a user that can be login in web server'
+      community.general.htpasswd:
+        path: "{{ directorio_ficheros }}/{{ autenticacion.bbdd_usuarios }}"
+        name: "{{ autenticacion.usuario_1.nombre }}"
+        password: "{{ autenticacion.usuario_1.contrasena }}"
+        crypt_scheme: "{{ autenticacion.encriptacion }}"
+    
+    - name: 'Generate an OpenSSL private key'
+      community.crypto.openssl_privatekey:
+        path: "{{ directorio_ficheros }}/{{ cifrado.clave }}"
+
+    - name: 'Generate an OpenSSL Certificate Signing Request'
+      community.crypto.openssl_csr:
+        path: "{{ directorio_ficheros }}/{{ cifrado.certificado }}"
+        privatekey_path: "{{ directorio_ficheros }}/{{ cifrado.clave }}"
+        common_name: localhost    
+
+    - name: 'Generate a Self Signed OpenSSL certificate'
+      community.crypto.x509_certificate:
+        path: "{{ directorio_ficheros }}/{{ cifrado.certificado }}"
+        privatekey_path: "{{ directorio_ficheros }}/{{ cifrado.clave }}"
+        csr_path: "{{ directorio_ficheros }}/{{ cifrado.certificado }}"
+        provider: selfsigned
+
+    - name: 'Build and tag webserver podman image'
+      containers.podman.podman_image:
+        name: "{{ imagen_webserver }}"
+        tag:  "{{ imagen.cp2_tag_name }}"
+        path: "{{ directorio_ficheros }}"
+        state: build 
+
+    - name: 'Connect to azure registry'
+      containers.podman.podman_login:
+        username: "{{ acr.nombre_de_usuario }}"
+        password: "{{ acr.contrasena }}"
+        registry: "{{ acr.servidor }}"    
+
+    - name: 'Push webserver podman image'
+      containers.podman.podman_image:
+        name: "{{ imagen_webserver }}:{{ imagen.cp2_tag_name }}"
+        push: yes
+        push_args:
+          dest: "{{ acr.servidor }}" 
+
+
+- name: 'Virtual server configuration'
+  hosts: azurevmserver
+  become: true
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  vars_files:
+    - vars/vars_acr.yaml
+    - vars/vars_vm.yaml  
+  tasks:
+
+    - name: 'Install podman'
+      ansible.builtin.dnf:
+        name: podman
+        state: latest
+
+    - name: 'Connect to azure registry'
+      containers.podman.podman_login:
+        username: "{{ acr.nombre_de_usuario }}"
+        password: "{{ acr.contrasena }}"
+        registry: "{{ acr.servidor }}"
+
+    - name: 'Pull webserver image'
+      containers.podman.podman_image:
+        name: "{{ acr.servidor }}/{{ imagen_webserver }}:{{ imagen.cp2_tag_name }}"
+
+    - name: 'Create and run container'
+      containers.podman.podman_container:
+        name: "{{ contenedor_webserver }}"
+        image: "{{ acr.servidor }}/{{ imagen_webserver }}:{{ imagen.cp2_tag_name }}"
+        state: started
+        ports:
+        - "8080:443"
+
+    - name: 'Generate systemd files'
+      containers.podman.podman_generate_systemd:
+        name: "{{ contenedor_webserver }}"
+        dest: /etc/systemd/system/
+
+    - name: 'Reload systemd config and star service'
+      ansible.builtin.systemd:
+        name: "container-{{ contenedor_webserver }}"
+        daemon_reload: yes
+        state: started
+        enabled: yes    
